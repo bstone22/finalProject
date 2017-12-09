@@ -86,29 +86,23 @@ public class FileSystem
 	{
 		synchonrize(fte)
 		{
-			if (fte == null) {return -1;}	//if null return false
+			if (fte == null) {return -1;}		//if null return false
 			fte.count--;						//decrease the count if there are more than one inode
-			if(fte.count > 0) {return 0;}	//return true if > 0, still has pointers to fte
+			if(fte.count > 0) {return 0;}		//return true if > 0, still has pointers to fte
 		}
 		return filetable.ffree(fte);			//if count == 0, call ffree on the filetable 
 	}
 
 	public int delete(String filename)
 	{
-		int number = dir.namei(filename);	//get the iNumber assoicated with the file name;
+		int number = dir.namei(filename);		//get the iNumber assoicated with the file name;
 
-		if (number == -1) {return -1;}		//-1 doesnt exist
+		if (number == -1) {return -1;}			//-1 doesnt exist
 
-		FileTableEntry fte = open(filetable, "w");	//Open file table entry associated with the name
+		FileTableEntry fte = open(filename, "w");	//Open file table entry associated with the name
 
-		if(close(fte) && directory.ifree(number))	//if both close and ifree pass, the file has been deleted
-		{
-			return 0;
-		}
-		else
-		{
-			return -1;
-		}
+		if(close(fte) && directory.ifree(number)) { return 0; }
+		else { return -1; }   					 //if both close and ifree pass, the file has been deleted
 	}
 
 	//int fsize - FileTableEntry 
