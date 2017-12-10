@@ -77,7 +77,7 @@ public class FileSystem
 	//with the FTE
 	public FileTableEntry open(String name,String mode)
 	{
-		FileTableEntry fte = filetable.falloc(name, mode);			//fte entry, with name andmode
+		FileTableEntry fte = filetable.falloc(name, mode);		//fte entry, with name andmode
 
 		if (mode == "w" && !deallocate(fte)) { return null;}	//if write, dealloc
 
@@ -92,12 +92,12 @@ public class FileSystem
 	{
 		if(fte ==  null) {return false;}				//if null no need to deallocate
 
-		for (short i = 0; i < DIRECT_PTR_SIZE; i++)	//check direct pointers
+		for (short i = 0; i < DIRECT_PTR_SIZE; i++)		//check direct pointers
 		{
-			if (fte.inode.direct[i] != -1)					//if used
+			if (fte.inode.direct[i] != -1)				//if used
 			{
-				superblock.returnBlock(i);					//return block
-				fte.inode.direct[i] = -1;					//set to -1
+				superblock.returnBlock(i);				//return block
+				fte.inode.direct[i] = -1;				//set to -1
 			}
 		}
 
@@ -107,13 +107,13 @@ public class FileSystem
 		{
 			short block;
 
-			while((block = SysLib.bytes2short(idPtr, 0)) != -1)		//while loop to check, indirect pointers
+			while((block = SysLib.bytes2short(idPtr, 0)) != -1)	//while loop to check, indirect pointers
 			{
-				superblock.returnBlock(block);				//return block
+				superblock.returnBlock(block);					//return block
 			}
 		}
 
-		fte.inode.toDisk(fte.iNumber);			//write to disk
+		fte.inode.toDisk(fte.iNumber);							//write to disk
 		return true;
     }
 
@@ -134,30 +134,30 @@ public class FileSystem
 			int bytesRead = 0;						//bytes read
 			int position = 0;						//current position 
 
-			while(bytesLeft > 0 && fte.seekPtr < fsize(fte) )		//while still bytes to read and seekptr is less than size
+			while(bytesLeft > 0 && fte.seekPtr < fsize(fte) )			//while still bytes to read and seekptr is less than size
 			{
 				int current = fte.inode.findTargetBlock(fte.seekPtr);	//get current block
 
-				if (current > -1)						//if not an error
+				if (current > -1)										//if not an error
 				{
 
-					byte [] data = new byte[blockSize];	//allocate data space
-					SysLib.rawread(current,data);		//write current block and data
+					byte [] data = new byte[blockSize];					//allocate data space
+					SysLib.rawread(current,data);						//write current block and data
 
 					int offset = fte.seekPtr % blockSize;				//get offset
-					int blocksRemaining = blockSize - position;		//get blocks remaining
-					int fileRemaining = fsize(fte) - fte.seekPtr;	//get file remaining
+					int blocksRemaining = blockSize - position;			//get blocks remaining
+					int fileRemaining = fsize(fte) - fte.seekPtr;		//get file remaining
 
-					if(blocksRemaining < fileRemaining)				//if blocks reamin is less than file left
+					if(blocksRemaining < fileRemaining)					//if blocks reamin is less than file left
 					{
-						position = blocksRemaining;					//poistion is blocks remaining
+						position = blocksRemaining;						//poistion is blocks remaining
 					}
 					else
 					{
-						position = fileRemaining;					//position is file remain
+						position = fileRemaining;						//position is file remain
 					}
 
-					if(position > bytesLeft) { position = bytesLeft;}  //if position is larger, correct. 
+					if(position > bytesLeft) { position = bytesLeft;}  	//if position is larger, correct. 
 
 					System.arraycopy(data, offset, buffer, bytesRead, position); //copy data
 
