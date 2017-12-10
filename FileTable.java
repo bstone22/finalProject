@@ -41,7 +41,7 @@ public class FileTable
 
       while (true)
       {
-         iNumber = (filename.equals("/") ? 0 : dir.namei(filename)); //get the number from the inode given the file name
+         iNumber = (filename.equals("/") ? (short)0 : dir.namei(filename)); //get the number from the inode given the file name
 
          if (iNumber >= 0)       
          {
@@ -86,12 +86,16 @@ public class FileTable
                }
             }
          }
-         else                                      //the case where an Inode needs to be created
+         else if (!mode.equals("r"))               //the case where an Inode needs to be created
          {
             iNumber = dir.ialloc(filename);        //get number from directory
             inode = new Inode(iNumber);            //create New Inode
             inode.flag = WRITE;                    //set flag to write
             break;
+         }
+         else
+         {
+            return null;
          }
       }
 
@@ -102,10 +106,10 @@ public class FileTable
       return e;                                    //return FTE
    }
 
-   //synchonized boolean ffree - FileTableEntry entry
-   //
-   //the ffree function is used to removing an FTE from the table as well as setting the
-   //corresponding node flags to used and notifying other threads that are waiting.  
+   // synchonized boolean ffree - FileTableEntry entry
+   
+   // the ffree function is used to removing an FTE from the table as well as setting the
+   // corresponding node flags to used and notifying other threads that are waiting.  
    public synchronized boolean ffree( FileTableEntry entry )
    {
       if(!table.remove(entry))                        //Check to see if entry can't be removed 
