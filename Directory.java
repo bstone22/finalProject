@@ -19,9 +19,20 @@ public class Directory {
       maxNumber = maxInumber;
    }
 
-   public void bytes2directory( byte data[] ) {
-      // assumes data[] received directory information from disk
-      // initializes the Directory instance with this data[]
+   public void bytes2directory( byte data[] ) 
+   {
+      int offset = 0;
+      for(int i = 0; i < fsizes.length; i++, offest += 4)
+      {
+         fsizes[i] = Syslib.bytes2int(data, offset);
+      }
+
+      for(int i = 0; i < fnames.length; i++, offset += maxChars * 2) 
+      {
+         String fname = new String(data, offset, maxChars *2);
+         fname.getChars(0, fsizes[i], fnames[i], 0);
+      }
+
    }
 
    public byte[] directory2bytes( ) {
