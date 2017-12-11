@@ -1,4 +1,5 @@
 import java.io.*;
+import java.util.*;
 
 public class SuperBlock 
 {
@@ -11,7 +12,7 @@ public class SuperBlock
    
    public SuperBlock( int diskSize ) 
    {
-   		byte[] superBlock = new byte[Disk.blocksize];
+   		byte[] superBlock = new byte[Disk.blockSize];
    		SysLib.rawread(0, superBlock);
    		totalBlocks = SysLib.bytes2int(superBlock, 0);
    		totalInodes = SysLib.bytes2int(superBlock, 4);
@@ -33,23 +34,23 @@ public class SuperBlock
    {	
    		if(freeList < 2)
    		{
-   			return -1
+   			return -1;
    		}
    		else if(freeList > totalBlocks)
    		{
-   			return -1
+   			return -1;
    		}
    		else
    		{
    			int formerHead = 0;
-   			byte[] findFreeBlockArr = new byte [Disk.blocksize];
+   			byte[] findFreeBlockArr = new byte [Disk.blockSize];
 
    			formerHead = freeList; //Save the head that's being kicked out
    			SysLib.rawread(freeList, findFreeBlockArr); // Gte info from that block #
    			freeList = SysLib.bytes2int(findFreeBlockArr, 0);//Get the new Head from the array from where it is found
    			//Reason the offset is zero instead of 8 is because unlike block 0 the first few bytes of each block is the number of the free list (Panitz Lecture)
 
-   			SysLib.int2bytes(-1, findFreeBlockArr, 0)
+   			SysLib.int2bytes(-1, findFreeBlockArr, 0);
    			SysLib.rawwrite(formerHead, findFreeBlockArr);
 
    			sync(); // sync to the disk
@@ -60,7 +61,7 @@ public class SuperBlock
 
    public void format(int fileNumber)
    {
-   		byte[] formatArr = new byte [512];
+   		//byte[] formatArr = new byte [Disk.blockSize];
    		totalInodes = fileNumber;
    		int filledBlocks = fileNumber / 16; //the blocks that will be filled with Inodes
    		if(totalInodes% 16 == 0)
@@ -75,13 +76,13 @@ public class SuperBlock
    		for(int i = 0; i < totalInodes; i++)
    		{
    			Inode newInodeEntry = new Inode(); //create an Inode for each file and call toDisk
-   			newInodeEntry.toDisk();
+   			newInodeEntry.toDisk((short)i);
    		}
    		sync(); //Set up the superblock
 
    		for(int i = freeList; i < totalBlocks; i++)
    		{
-   			byte[] formatArr = new byte [512];
+   			byte[] formatArr = new byte [Disk.blockSize];
    			Arrays.fill(formatArr,(byte)0);
    			if(i == totalBlocks-1)
    			{
@@ -91,7 +92,7 @@ public class SuperBlock
    			{
    				SysLib.int2bytes(i+1, formatArr, 0);
    			}
-   			rawwrite(i, formatArr);
+   			SysLib.rawwrite(i, formatArr);
    		}
    }
    
@@ -101,9 +102,9 @@ public class SuperBlock
    		{
    			if(blockNumber < totalBlocks)
    			{
-   				byte selectedBlkArr = new byte[Disk.diskSize];
+   				byte[] selectedBlkArr = new byte[Disk.blockSize];
    				SysLib.int2bytes(freeList, selectedBlkArr, 0);
-   				rawwrite(blockNumber, selectedBlkArr);
+   				SysLib.rawwrite(blockNumber, selectedBlkArr);
    				freeList = blockNumber;
    				sync();
    				return true;
@@ -121,11 +122,11 @@ public class SuperBlock
 
    public void sync()
    {
-   		byte[] syncArr = new byte[Disk.blocksize];
+   		byte[] syncArr = new byte[Disk.blockSize];
 
-   		int2bytes(totalBlocks, syncArr, 0);
-   		int2bytes(totalInodes, syncArr, 4);
-   		int2bytes(freeList, syncArr, 8);
+   		SysLib.int2bytes(totalBlocks, syncArr, 0);
+   		SysLib.int2bytes(totalInodes, syncArr, 4);
+   		SysLib.int2bytes(freeList, syncArr, 8);
 
    		SysLib.rawwrite(0, syncArr);
    }
