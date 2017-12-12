@@ -49,6 +49,7 @@ public class Kernel
    private static Scheduler scheduler;
    private static Disk disk;
    private static Cache cache;
+	private static FileSystem fs;
 
    // Synchronized Queues
    private static SyncQueue waitQueue;  // for threads to wait for their child
@@ -82,6 +83,7 @@ public class Kernel
                   // instantiate synchronized queues
                   ioQueue = new SyncQueue( );
                   waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
+		          fs = new FileSystem(1000);
                   return OK;
                case EXEC:
                   return sysExec( ( String[] )args );
@@ -121,6 +123,7 @@ public class Kernel
                      ioQueue.enqueueAndSleep( COND_DISK_FIN );
                   return OK;
                case SYNC:     // synchronize disk data to a real file
+		fs.sync();
                   while ( disk.sync( ) == false )
                      ioQueue.enqueueAndSleep( COND_DISK_REQ );
                   while ( disk.testAndResetReady( ) == false )
@@ -147,12 +150,18 @@ public class Kernel
                            return ERROR;
                         }
                      case STDOUT:
+			            System.out.print( (String)args );
+			            return OK;
                      case STDERR:
-                        System.out.println( "threaOS: caused read errors" );
-                        return ERROR;
+                        System.err.print( (String)args );
+						return ERROR;
+						default:
+						   return fs.read(scheduler.getMyTcb().getFtEnt(param), (byte[]) args);
+
                   }
+
+				  //return ERROR;
                   // return FileSystem.read( param, byte args[] );
-                  return ERROR;
                case WRITE:
                   switch ( param ) {
                      case STDIN:
@@ -164,6 +173,8 @@ public class Kernel
                      case STDERR:
                         System.err.print( (String)args );
                         break;
+                     default:
+                        return fs.write(scheduler.getMyTcb().getFtEnt(param), (byte[]) args);
                   }
                   return OK;
                case CREAD:   // to be implemented in assignment 4
@@ -177,17 +188,57 @@ public class Kernel
                   cache.flush( );
                   return OK;
                case OPEN:    // to be implemented in project
-                  return OK;
+		if ((myTcb = scheduler.getMyTcb()) != null) {
+					  String[] stringArray = (String[])args;
+					  
+					  return myTcb.getFd(fs.open(stringArray[0], stringArray[1]));  
+				  }
+					
+				  
+				  return ERROR;
                case CLOSE:   // to be implemented in project
-                  return OK;
+		             if ((myTcb = scheduler.getMyTcb()) != null) {
+						FileTableEntry fTE = myTcb.getFtEnt(param);
+						if (fTE == null || fs.close(fTE) == false) {
+							return ERROR;
+						}
+						
+						
+						if (myTcb.returnFd(param) != fTE) {
+							return ERROR;
+						}
+						
+						
+						return OK;	
+					}
+					
+					
+					return ERROR;
                case SIZE:    // to be implemented in project
-                  return OK;
+                  if ((myTcb = scheduler.getMyTcb()) != null) {
+						FileTableEntry fTE = myTcb.getFtEnt(param);
+						if (fTE != null) {
+							return fs.fsize(fTE);
+						}
+					}
+					
+					
+					return ERROR;
                case SEEK:    // to be implemented in project
-                  return OK;
+                  if ((myTcb = scheduler.getMyTcb()) != null) {
+						int[] seekArgs = (int[])args;
+						FileTableEntry fTE = myTcb.getFtEnt(param);
+						if (fTE != null) {
+							return fs.seek(fTE, seekArgs[0], seekArgs[1]);
+						}
+					}
+					
+					
+					return ERROR;
                case FORMAT:  // to be implemented in project
-                  return OK;
+                  return (fs.format(param) == true) ? OK : ERROR;
                case DELETE:  // to be implemented in project
-                  return OK;
+                  return (fs.delete((String) args) == true) ? OK : ERROR;
             }
             return ERROR;
          case INTERRUPT_DISK: // Disk interrupts

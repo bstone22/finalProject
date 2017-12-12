@@ -115,4 +115,56 @@ public class SysLib {
 	        ((b[offset+2] & 0xff) << 8) + (b[offset+3] & 0xff);
 	return n;
     }
+
+    public static int open(String fileName, String mode)
+    {
+        String[] kernelItems = {fileName, mode};
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.OPEN, 0, kernelItems );
+    }
+
+    public static int format(int fileNumber)
+    {
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.FORMAT, fileNumber, null );
+    }
+    public static int close(int fileDes)
+    {
+
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.CLOSE, fileDes, null );
+    }
+    public static int seek(int fileDes, int oSet, int w )
+    {
+        Integer[] kernelItems = {new Integer(oSet), new Integer(w)};
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.SEEK, fileDes, kernelItems );
+    }
+    public static int fsize(int fileDes)
+    {
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.SIZE, fileDes, null );
+    }
+    public static int delete(String fileName)
+    {
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.DELETE, 0, fileName );
+    }
+    public static int write(int fileDes, byte[] data)
+    {
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.WRITE, fileDes, data );
+    }
+    public static int read(int fileDes, byte[] data)
+    {
+        return Kernel.interrupt( Kernel.INTERRUPT_SOFTWARE,
+                Kernel.READ, fileDes, data );
+    }
+
+
+
+
+
+
+
 }
