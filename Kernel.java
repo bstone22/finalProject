@@ -1,3 +1,14 @@
+/************************************************************************
+ *                                                                       *
+ * Author: Brent Stone & Prarin Behdarvandian                            *
+ * Date:   12/07/17                                                      *
+ * CSS 430                                                               *
+ * Program 5 - File System                                               *
+ *                                                                       *
+ * The Kernel has been modified to assist the FileSystem calls           *
+ * We have added an addition flag to lines that we have added code.      *
+ * 
+ ************************************************************************/
 import java.util.*;
 import java.lang.reflect.*;
 import java.io.*;
@@ -49,14 +60,19 @@ public class Kernel
    private static Scheduler scheduler;
    private static Disk disk;
    private static Cache cache;
-	private static FileSystem fs;
 
    // Synchronized Queues
    private static SyncQueue waitQueue;  // for threads to wait for their child
    private static SyncQueue ioQueue;    // I/O queue
 
+   //*********************ADDITION******************************//
+   private static FileSystem fsystem; 
+   //*********************ADDITION******************************//
+
    private final static int COND_DISK_REQ = 1; // wait condition 
    private final static int COND_DISK_FIN = 2; // wait condition
+
+
 
    // Standard input
    private static BufferedReader input
@@ -83,7 +99,11 @@ public class Kernel
                   // instantiate synchronized queues
                   ioQueue = new SyncQueue( );
                   waitQueue = new SyncQueue( scheduler.getMaxThreads( ) );
-		          fs = new FileSystem(1000);
+
+                  //*********************ADDITION******************************//
+                  fsystem = new FileSystem(1000);   //new file system
+                  //*********************ADDITION******************************//
+
                   return OK;
                case EXEC:
                   return sysExec( ( String[] )args );
@@ -123,7 +143,11 @@ public class Kernel
                      ioQueue.enqueueAndSleep( COND_DISK_FIN );
                   return OK;
                case SYNC:     // synchronize disk data to a real file
-		fs.sync();
+
+                  //*********************ADDITION******************************//
+                  fsystem.sync();      //sync the system 
+                  //*********************ADDITION******************************//
+
                   while ( disk.sync( ) == false )
                      ioQueue.enqueueAndSleep( COND_DISK_REQ );
                   while ( disk.testAndResetReady( ) == false )
@@ -150,18 +174,24 @@ public class Kernel
                            return ERROR;
                         }
                      case STDOUT:
-			            System.out.print( (String)args );
-			            return OK;
                      case STDERR:
-                        System.err.print( (String)args );
-						return ERROR;
-						default:
-						   return fs.read(scheduler.getMyTcb().getFtEnt(param), (byte[]) args);
-
+                        System.out.println( "threaOS: caused read errors" );
+                        return ERROR;
                   }
 
-				  //return ERROR;
+                  //*********************ADDITION******************************//   
+                  if ((myTcb = scheduler.getMyTcb()) != null)     //if exist a TCB
+                  {
+                 
+                     FileTableEntry fte = myTcb.getFtEnt(param);     //create FTE object 
+
+                     if (fte != null) { return fsystem.read(fte, (byte[])args);} //if not empty, call read
+                  }
+                  //*********************ADDITION******************************//
+
+
                   // return FileSystem.read( param, byte args[] );
+                  return ERROR;
                case WRITE:
                   switch ( param ) {
                      case STDIN:
@@ -169,14 +199,27 @@ public class Kernel
                         return ERROR;
                      case STDOUT:
                         System.out.print( (String)args );
-                        break;
+                        //*********************ADDITION******************************//
+                        return OK;  //return okay
+                        //*********************ADDITION******************************//
                      case STDERR:
                         System.err.print( (String)args );
-                        break;
-                     default:
-                        return fs.write(scheduler.getMyTcb().getFtEnt(param), (byte[]) args);
+                        //*********************ADDITION******************************//
+                        return OK;  //return okay
+                        //*********************ADDITION******************************//
                   }
-                  return OK;
+
+                  //*********************ADDITION******************************//
+                  if ((myTcb = scheduler.getMyTcb()) != null)        //if tcb exist
+                  {
+                     FileTableEntry fte = myTcb.getFtEnt(param);     //fte object
+               
+                     if (fte != null) { return fsystem.write(fte, (byte[])args); } //if not null, write 
+                  }
+
+                  return ERROR;
+                  //*********************ADDITION******************************//
+
                case CREAD:   // to be implemented in assignment 4
                   return cache.read( param, ( byte[] )args ) ? OK : ERROR;
                case CWRITE:  // to be implemented in assignment 4
@@ -188,57 +231,81 @@ public class Kernel
                   cache.flush( );
                   return OK;
                case OPEN:    // to be implemented in project
-		if ((myTcb = scheduler.getMyTcb()) != null) {
-					  String[] stringArray = (String[])args;
-					  
-					  return myTcb.getFd(fs.open(stringArray[0], stringArray[1]));  
-				  }
-					
-				  
-				  return ERROR;
+
+                  //*********************ADDITION******************************//
+                  if ((myTcb = scheduler.getMyTcb()) != null)     //if tcb exist
+                  {
+                     String[] sArray = (String[])args;            //string array, with argmunets
+                     
+                     return myTcb.getFd(fsystem.open(sArray[0], sArray[1]));    //return file descripton
+                  }
+
+                  return ERROR;
+                  //*********************ADDITION******************************//
+
                case CLOSE:   // to be implemented in project
-		             if ((myTcb = scheduler.getMyTcb()) != null) {
-						FileTableEntry fTE = myTcb.getFtEnt(param);
-						if (fTE == null || fs.close(fTE) == false) {
-							return ERROR;
-						}
-						
-						
-						if (myTcb.returnFd(param) != fTE) {
-							return ERROR;
-						}
-						
-						
-						return OK;	
-					}
-					
-					
-					return ERROR;
+
+                  //*********************ADDITION******************************//
+                  if ((myTcb = scheduler.getMyTcb()) != null)        //if TCB exist
+                  {
+                     FileTableEntry fte = myTcb.getFtEnt(param);     //fte object
+                  
+                     if (fte == null || fsystem.close(fte) == false) { return ERROR;}  //if null or closed, error
+                  
+                     if (myTcb.returnFd(param) != fte) {return ERROR;}     //if it doesnt equal fte, not same
+                     
+                     return OK;  
+                  }
+                  
+               
+                  return ERROR;
+                  //*********************ADDITION******************************//
+
                case SIZE:    // to be implemented in project
-                  if ((myTcb = scheduler.getMyTcb()) != null) {
-						FileTableEntry fTE = myTcb.getFtEnt(param);
-						if (fTE != null) {
-							return fs.fsize(fTE);
-						}
-					}
-					
-					
-					return ERROR;
+
+                  //*********************ADDITION******************************//
+                  if ((myTcb = scheduler.getMyTcb()) != null)  //if TCB exist
+                  {
+                     FileTableEntry fte = myTcb.getFtEnt(param);  //fte object
+                     
+                     if (fte != null) { return fsystem.fsize(fte);} //if fte not null, return size 
+                  }
+
+                  return ERROR;
+                  //*********************ADDITION******************************//
+                  
                case SEEK:    // to be implemented in project
-                  if ((myTcb = scheduler.getMyTcb()) != null) {
-						int[] seekArgs = (int[])args;
-						FileTableEntry fTE = myTcb.getFtEnt(param);
-						if (fTE != null) {
-							return fs.seek(fTE, seekArgs[0], seekArgs[1]);
-						}
-					}
-					
-					
-					return ERROR;
+
+                  //*********************ADDITION******************************//
+                  if ((myTcb = scheduler.getMyTcb()) != null)  //if tcb exist
+                  {
+                     int[] seekArguments = (int[])args;        //seek int argments
+                     
+                     FileTableEntry fte = myTcb.getFtEnt(param);     //fte object
+                     
+                     if (fte != null) { return fsystem.seek(fte, seekArguments[0], seekArguments[1]);}
+                     //return seek call, with fte and arry index 0 and 1
+                  }
+
+                  return ERROR;
+                  //*********************ADDITION******************************//
+
                case FORMAT:  // to be implemented in project
-                  return (fs.format(param) == true) ? OK : ERROR;
+
+                  //*********************ADDITION******************************//
+                  if(fsystem.format(param) == true) {return OK;}  //if formmated return ok 
+
+                  return ERROR;
+                  //*********************ADDITION******************************//
+                  
                case DELETE:  // to be implemented in project
-                  return (fs.delete((String) args) == true) ? OK : ERROR;
+
+                  //*********************ADDITION******************************//
+                  if(fsystem.delete((String)args) == true){ return OK;} //if deleted return ok
+
+                  return ERROR; 
+
+                  //*********************ADDITION******************************//
             }
             return ERROR;
          case INTERRUPT_DISK: // Disk interrupts

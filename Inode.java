@@ -1,192 +1,215 @@
-public class Inode {
-   private final static int iNodeSize = 32;       // fix to 32 bytes
-   private final static int directSize = 11;      // # direct pointers
+/************************************************************************
+*                                                                       *
+* Author: Brent Stone & Prarin Behdarvandian                            *
+* Date:   12/07/17                                                      *
+* CSS 430                                                               *
+* Program 5 - File System                                               *
+*                                                                       *
+************************************************************************/			
+public class Inode 
+{
+	
+	private final static int SIZE_INODE = 32;	// fix to SIZE_INODE bytes
+	private final static int MAX_BYTES_ALLOWED = 512;
+	private final static int SIZE_OF_BLOCK= 16;
 
-   public int length;                             // file size in bytes
-   public short count;                            // # file-table entries pointing to this
-   public short flag;                             // 0 = unused, 1 = used, ...
-   public short direct[] = new short[directSize]; // direct pointers
-   public short indirect;                         // a indirect pointer
+	public int length;		// file size in bytes
+	public short count;		// # file-table entries pointing to this
+	public short flag;		// 0 = unused, 1 = used, ...
+	public short direct[] = new short[11];		// direct pointers
+	public short indirect;	// a new indirect pointer
+	public int directSize = 11;
+	
+	//Default Constructor
+	//
+	//Sets variables to starting values, also sets the 11 pointer to -1 and the 
+	//indirect to -1
+	Inode() 
+	{		
+		length = 0;
+		count = 0;
+		flag = 1;
+		
+		for (int i = 0; i < directSize; i++) 
+		{
+			direct[i] = -1;
+		}		
+		indirect = -1;	
+	}
+	
+	
+	//Inode - short iNUmber
+	//
+	//This constructor takes in a short that is the inumber, then suses the inumber to 
+	//then calculate the block number, figure out the new lenght, count and flag associaed 
+	//wotj the blocknumber.  Also sets the 11 direct pointers and 1 indriret pointer 
+   	Inode( short iNumber )
+   	{                       				
+       int blockNumber = 1+iNumber/SIZE_OF_BLOCK;		//get needed block number
+       byte[] data = new byte[Disk.blockSize];			//new buffer data
+       SysLib.rawread(blockNumber,data);				//write, with block number and buffer
 
-   Inode( ) {                                     // a default constructor
-      length = 0;
-      count = 0;
-      flag = 1;
-      for ( int i = 0; i < directSize; i++ )
-         direct[i] = -1;
-      indirect = -1;
-   }
+       int offset = (iNumber % SIZE_OF_BLOCK)*SIZE_INODE;	//get offset
 
-   Inode( short iNumber )
-   {                       // retrieving inode from disk
-       int blockNumber = 1+iNumber/16;
-       byte[] data = new byte[Disk.blockSize];
-       SysLib.rawread(blockNumber,data);
-       int offset = (iNumber % 16)*32;
-
-       length = SysLib.bytes2int(data,offset);
+       length = SysLib.bytes2int(data,offset);				//get new length
        offset += 4;
-       count = SysLib.bytes2short(data, offset);
-       offset += 2;
-       flag = SysLib.bytes2short(data, offset);
+
+       count = SysLib.bytes2short(data, offset);			//get new count
        offset += 2;
 
-       for(int i = 0; i < directSize; i++)
+       flag = SysLib.bytes2short(data, offset);				//get new flag
+       offset += 2;
+
+       for(int i = 0; i < directSize; i++)					//11 direct prts		
        {
-           direct[i] = SysLib.bytes2short(data, offset);
+           direct[i] = SysLib.bytes2short(data, offset);	
            offset+=2;
        }
 
-       indirect = SysLib.bytes2short(data,offset);
-   }
+       indirect = SysLib.bytes2short(data,offset);			//1 indirect 
+       offset += 2;											//increment offset 
+   	}
+	
+	
+   	//toDisk - short iNumber
+   	//
+   	//This fucntion writes to the disk and takes in a short inumber as a parameter
+	public int toDisk(short iNumber) 
+	{
+		byte[] toDiskArr = new byte[SIZE_INODE];			//byte buffer
+		
+		int offset = 0;										//starting offset
+		int position = (iNumber%SIZE_OF_BLOCK)*SIZE_INODE;	//starting position, paramater user 
+		
+		SysLib.int2bytes(length, toDiskArr, offset);		//lenght
+		offset += 4;
+		
+		SysLib.short2bytes(count, toDiskArr, offset);		//count
+		offset += 2;
+		
+		SysLib.short2bytes(flag, toDiskArr, offset);		//flag
+		offset += 2;
+		
+		for (int i = 0; i < 11; i++) 
+		{														//direct pointers
+			SysLib.short2bytes(direct[i], toDiskArr, offset);
+			offset += 2;
+		}
+		
+		SysLib.short2bytes(indirect, toDiskArr, offset);		//indirect pointer
+		offset += 2;
+		
+		int numbBlocks = 1 + (iNumber / SIZE_OF_BLOCK);			//number of blocks
+		byte[] data = new byte[MAX_BYTES_ALLOWED];				//buffer data to write
+		SysLib.rawread(numbBlocks, data);						
+		
+		offset = ((iNumber % SIZE_OF_BLOCK) * SIZE_INODE);		//calacualte offset
+		
+		System.arraycopy(toDiskArr, 0, data, offset, SIZE_INODE);	//write to disk
+		SysLib.rawwrite(numbBlocks, data);							
+		
+		return 0;		//success!
+	}
+	
+	//getIndexBlockNumber - int fte, short offest
+	//
+	//This function is used in the write poriton of the SystemFile and gets the index of 
+	//the block given the current file talbe entry and current offset, which is the 
+	//seek pointer and the next free block, respectivly.
+	public int getIndexBlockNumber(int fte, short offset) 
+	{		
+		int search = (fte / MAX_BYTES_ALLOWED);						//fte / max byes will give yoe pointer
 
-   public void toDisk( short iNumber )
-   {
-       int bNum = (iNumber+1)/16;
-       byte[] toDiskArr = new byte[Disk.blockSize];
+		if (search < directSize) 									//if direct pointer
+		{	
+			if (direct[search] >= 0) { return -1; }					//uncessful if greater than 0
+			
+			if ((search > 0) && (direct[search - 1] == -1)) { return -2;}	//another uncessful case
+			
+			direct[search] = offset;								//if found!
+			
+			return 0;
+		}
+		
+		if (indirect < 0) { return -3;}					//if found in the indriect ponter
+		
+		byte[] data = new byte[MAX_BYTES_ALLOWED];		//buffer
+	
+		SysLib.rawread(indirect, data);					//indirect pointer and data	
+		
+		int blockSpace = 2 * (search - directSize);		//see where this pointe is
 
-       SysLib.rawread(bNum,toDiskArr);
-       int position = (iNumber%16)*32;
-       SysLib.int2bytes(length, toDiskArr, position);
-       position+=4;
-       SysLib.short2bytes(count, toDiskArr, position);
-       position+=2;
-       SysLib.short2bytes(flag, toDiskArr, position);
-       position+=2;
+		if (SysLib.bytes2short(data, blockSpace) > 0) { return -1; }
+			
+		SysLib.short2bytes(offset, data, blockSpace);	//write to disk
+		SysLib.rawwrite(indirect, data);
+		
+		return 0;
+	}
+	
+	
+	//setIndexBlock - short iNumber
+	//
+	//this function sets the index of the block number.  It uses the inumber
+	//tofind the ponter that is not in the direct pointers
+	public boolean setIndexBlock(short iNumber) 
+	{
+		for (int i = 0; i < directSize; i++) 			//if direct pointer are unused, error 
+		{		
+			if(direct[i] == -1) { return false;}
+		}
+		
+		if (indirect != -1) { return false; }			//if indriec is not used, error
+		
+		indirect = iNumber;								//if passes those test, indirect is i number
 
-       for(int i = 0; i < directSize; i++)
-       {
-           SysLib.short2bytes(direct[i], toDiskArr, position);
-           position+=2;
-       }
-       SysLib.short2bytes(indirect, toDiskArr, position);
-       SysLib.rawwrite(bNum, toDiskArr);
-   }
+		byte[] data = new byte[MAX_BYTES_ALLOWED];		//data buffer
+		
+		for (int i = 0; i < (MAX_BYTES_ALLOWED / 2); i++) 	//loop 256 
+		{
+			SysLib.short2bytes((short)-1, data, (2 * i));	//syslib call to short2bytes with buffer
+		}
+		
+		SysLib.rawwrite(iNumber, data);			//inumber and data buffer
+			
+		return true;
+	}
+	
+	//int FindTargetBlock - int offset
+	//
+	//this function is responsible for findting the target block within the direct block pointer
+	//or indirect block.  
+	public int findTargetBlock(int offset) 
+	{
+		int indirblk; 						  	//indreict offset
+		int block = offset/ Disk.blockSize;		//offset block
+		
 
-   public short getIndexBlockNumber(int entry, short offset)
-   {
+		if (block < directSize) {return direct[block];}	//if block is under 11,(direct pointer blocks), return
 
-       int look = (entry / Disk.blockSize);
-       if (look < 11) {
+		if (indirect == -1) {return -1;}				//if indriect is still -1,(unused) - error
 
-           if (direct[look] >= 0) {
+		byte[] tempdata = new byte[Disk.blockSize];			//tempdata buffer
+		SysLib.rawread(indirect, tempdata);
 
-               return -1;
-           }
+		indirblk = block - directSize;					//get the indirect block
 
+		return SysLib.bytes2short(tempdata, indirblk * 2);	//return in of indirect block * size. 
+	}
+	
+	//byte[] freeIndirectBlock
+	//
+	//this fucntion is used to free the indirect block
+	public byte[] freeIndirectBlock() 
+	{
+		if(indirect == -1) {return null;}			//if -1, then unused
 
-           if ((look > 0) && (direct[look - 1] == -1)) {
+		byte[] data = new byte[Disk.blockSize];		//buffer
+		SysLib.rawread(indirect, data);				//empty buffer and indirect block 
+		indirect = -1;								//set unsued 
 
-               return -2;
-           }
-
-
-           direct[look] = offset;
-
-           return 0;
-       }
-
-
-       if (indirect < 0) {
-
-           return -3;
-       }
-
-
-       byte[] byteData = new byte[Disk.blockSize];
-
-       SysLib.rawread(indirect, byteData);
-
-       int blockSpace = 2 * (look - 11);
-       if (SysLib.bytes2short(byteData, blockSpace) > 0) {
-
-           return -1;
-       }
-
-
-       SysLib.short2bytes(offset, byteData, blockSpace);
-       SysLib.rawwrite(indirect, byteData);
-
-
-       return 0;
-   }
-
-   public boolean setIndexBlock(short indexBlockNumber)
-   {
-       for (int i = 0; i < 11; i++) {
-
-           if(direct[i] == -1) {
-
-               return false;
-           }
-       }
-
-
-       if (indirect != -1) {
-
-           return false;
-       }
-
-
-       indirect = indexBlockNumber;
-       byte[] byteData = new byte[Disk.blockSize];
-
-       for (int i = 0; i < (Disk.blockSize / 2); i++) {
-           SysLib.short2bytes((short)-1, byteData, (2 * i));
-       }
-
-       SysLib.rawwrite(indexBlockNumber, byteData);
-
-
-       return true;
-   }
-
-   public short findTargetBlock(int offset)
-   {
-       if(offset < 0)
-       {
-           return -1;
-       }
-       else
-       {
-           if((offset/Disk.blockSize) < 11)
-           {
-               return direct[offset/Disk.blockSize];
-           }
-           else
-           {
-               if(indirect > 0)
-               {
-                   byte[] findBlock = new byte[Disk.blockSize];
-                   SysLib.rawread(indirect, findBlock);
-                   short result = SysLib.bytes2short(findBlock,((offset/Disk.blockSize)-11)*2);
-                   return  result;
-               }
-               else
-               {
-                   return -1;
-               }
-           }
-       }
-   }
-
-    byte[] deallocatedIndirect() {
-
-        if (indirect < 0)
-        {
-            return null;
-        }
-        else
-        {
-            byte[] byteData = new byte[Disk.blockSize];
-            SysLib.rawread(indirect, byteData);
-
-            indirect = -1;
-
-            return byteData;
-        }
-
-    }
-
-
+		return data; 								//return buffer
+	}
+	
+	
 }

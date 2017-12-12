@@ -101,7 +101,7 @@ public class FileSystem
 			}
 		}
 
-		byte [] idPtr = fte.inode.deallocatedIndirect();	//data from the indirect pointer
+		byte [] idPtr = fte.inode.freeIndirectBlock();	//data from the indirect pointer
 
 		if (idPtr != null)								//if being used
 		{
@@ -183,7 +183,6 @@ public class FileSystem
 	//pointer.Additional blocks are added if need, 
 	public int write(FileTableEntry fte, byte[] buffer)
 	{
-	    if(fte == null){return -1;}
 		if(fte.mode == "r") {return -1;} 		//not supposed to be here
 
 		synchronized (fte)
@@ -199,10 +198,10 @@ public class FileSystem
 
 				if(loc == -1)										//if -1 get some blocks
 				{
-					short nextLoc = (short) superblock.getFreeBlock();	//next location of blocks allocated by super
+					short nextLoc = (short) superblock.nextFreeBlock();	//next location of blocks allocated by super
 
 					int test = fte.inode.getIndexBlockNumber(fte.seekPtr, nextLoc);	//test check for block
-					//int test = fte.inode.getIndexBlockNumber();
+
 					switch(test)
 					{
 						case -1: {return -1;}	//not valid index
@@ -211,9 +210,9 @@ public class FileSystem
 
 						case -3:				//valid index
 						{
-							short freeBlock = (short) this.superblock.getFreeBlock();	//get next free block
+							short freeBlock = (short) this.superblock.nextFreeBlock();	//get next free block
 
-							if(!fte.inode.setIndexBlock(freeBlock) || fte.inode.getIndexBlockNumber(fte.seekPtr, nextLoc)/*fte.inode.getIndexBlockNumber()*/ !=0)
+							if(!fte.inode.setIndexBlock(freeBlock) || fte.inode.getIndexBlockNumber(fte.seekPtr, nextLoc) !=0)
 							{
 								return -1;	//if the indirect points are empty and check for a pointer error then return erro 	
 							}
